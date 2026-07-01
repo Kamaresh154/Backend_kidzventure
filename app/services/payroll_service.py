@@ -29,7 +29,7 @@ async def list_staff(
 
 
 async def create_staff(db: AsyncSession, org_id: uuid.UUID, data: StaffProfileCreate) -> StaffProfile:
-    staff = StaffProfile(organization_id=org_id, **data.model_dump())
+    staff = StaffProfile(organization_id=org_id, **data.model_dump(exclude={"phone", "email"}))
     db.add(staff)
     await db.commit()
     await db.refresh(staff)

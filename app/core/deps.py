@@ -109,3 +109,6 @@ async def resolve_org_id(current: "CurrentUser", db: "AsyncSession") -> "UUID":
             raise _HTTPException(status_code=404, detail="No organization found")
         return org.id
     raise _HTTPException(status_code=400, detail="No organization context")
+
+
+ResolvedOrgDep = Annotated[UUID, Depends(resolve_org_id)]

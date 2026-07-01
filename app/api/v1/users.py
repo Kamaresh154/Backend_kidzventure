@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, EmailStr, Field
 
-from app.core.deps import CurrentUserDep, DbSession
+from app.core.deps import CurrentUserDep, DbSession, ResolvedOrgDep
 from app.core.security import hash_password
 from app.models.organization import Organization
 from app.models.rbac import Role, UserRole
@@ -54,23 +54,19 @@ class UserListResponse(BaseModel):
 async def list_users(
     db: DbSession,
     current: CurrentUserDep,
-    org_id: UUID | None = None,
+    org_id: ResolvedOrgDep,
+    filter_org_id: UUID | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ) -> UserListResponse:
-    """Super admin sees all users; franchise admin sees their own org users."""
     current.require_permission("users.read")
 
     q = select(User).where(User.deleted_at.is_(None))
     if "super_admin" in current.roles:
-        if org_id:
-            q = q.where(User.organization_id == org_id)
-        # super admin: exclude other super admins from list
-        # (handled on frontend via role filter)
+        if filter_org_id:
+            q = q.where(User.organization_id == filter_org_id)
     else:
-        if current.org_id is None:
-            return UserListResponse(items=[], total=0)
-        q = q.where(User.organization_id == current.org_id)
+        q = q.where(User.organization_id == org_id)
 
     from sqlalchemy import func, select as sel
     count_q = sel(func.count()).select_from(q.subquery())
@@ -107,18 +103,15 @@ async def list_users(
 
 
 @router.post("", status_code=201)
-async def create_user(data: CreateUserRequest, db: DbSession, current: CurrentUserDep) -> UserListItem:
-    """Super admin or franchise admin creates a user."""
+async def create_user(data: CreateUserRequest, db: DbSession, current: CurrentUserDep, org_id: ResolvedOrgDep) -> UserListItem:
     current.require_permission("users.write")
 
     role_code = data.role if data.role in ALLOWED_ROLES else "employee"
 
-    # Determine org context
     if "super_admin" in current.roles:
         target_org_id = data.organization_id
     else:
-        target_org_id = current.org_id
-        # franchise admin can't create super_admin
+        target_org_id = org_id
         if role_code == "super_admin":
             raise HTTPException(403, "Cannot create super_admin")
 
@@ -172,13 +165,12 @@ async def create_user(data: CreateUserRequest, db: DbSession, current: CurrentUs
 
 
 @router.patch("/{user_id}")
-async def update_user(user_id: UUID, data: UpdateUserRequest, db: DbSession, current: CurrentUserDep) -> UserListItem:
-    """Super admin or franchise admin updates a user."""
+async def update_user(user_id: UUID, data: UpdateUserRequest, db: DbSession, current: CurrentUserDep, org_id: ResolvedOrgDep) -> UserListItem:
     current.require_permission("users.write")
 
     q = select(User).where(User.id == user_id, User.deleted_at.is_(None))
     if "super_admin" not in current.roles:
-        q = q.where(User.organization_id == current.org_id)
+        q = q.where(User.organization_id == org_id)
 
     user = (await db.execute(q)).scalar_one_or_none()
     if not user:
@@ -228,14 +220,13 @@ async def update_user(user_id: UUID, data: UpdateUserRequest, db: DbSession, cur
 
 
 @router.delete("/{user_id}", status_code=204)
-async def delete_user(user_id: UUID, db: DbSession, current: CurrentUserDep) -> None:
-    """Soft-delete a user."""
+async def delete_user(user_id: UUID, db: DbSession, current: CurrentUserDep, org_id: ResolvedOrgDep) -> None:
     current.require_permission("users.write")
     from datetime import datetime, timezone
 
     q = select(User).where(User.id == user_id, User.deleted_at.is_(None))
     if "super_admin" not in current.roles:
-        q = q.where(User.organization_id == current.org_id)
+        q = q.where(User.organization_id == org_id)
 
     user = (await db.execute(q)).scalar_one_or_none()
     if not user:

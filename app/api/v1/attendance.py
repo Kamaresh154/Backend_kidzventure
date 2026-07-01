@@ -1,9 +1,9 @@
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 
-from app.core.deps import CurrentUserDep, DbSession
+from app.core.deps import CurrentUserDep, DbSession, ResolvedOrgDep
 from app.schemas.attendance import (
     AttendanceCheckIn,
     AttendanceCheckOut,
@@ -16,16 +16,11 @@ from app.services import attendance_service
 router = APIRouter(prefix="/attendance", tags=["attendance"])
 
 
-def _org_id(current: CurrentUserDep) -> UUID:
-    if current.org_id is None:
-        raise HTTPException(status_code=400, detail="No organization context")
-    return current.org_id
-
-
 @router.get("", response_model=AttendanceListResponse)
 async def list_attendance(
     current: CurrentUserDep,
     db: DbSession,
+    org_id: ResolvedOrgDep,
     center_id: UUID | None = None,
     student_id: UUID | None = None,
     on_date: date | None = None,
@@ -35,7 +30,7 @@ async def list_attendance(
     current.require_permission("attendance.read")
     rows, total = await attendance_service.list_attendance(
         db,
-        _org_id(current),
+        org_id,
         center_id=center_id,
         student_id=student_id,
         on_date=on_date,
@@ -64,21 +59,22 @@ async def list_attendance(
 async def attendance_summary(
     current: CurrentUserDep,
     db: DbSession,
+    org_id: ResolvedOrgDep,
     center_id: UUID,
     on_date: date | None = None,
 ) -> AttendanceSummary:
     current.require_permission("attendance.read")
     target = on_date or date.today()
-    return await attendance_service.daily_summary(db, _org_id(current), center_id, target)
+    return await attendance_service.daily_summary(db, org_id, center_id, target)
 
 
 @router.post("/check-in", response_model=AttendanceResponse, status_code=201)
 async def check_in(
-    data: AttendanceCheckIn, current: CurrentUserDep, db: DbSession
+    data: AttendanceCheckIn, current: CurrentUserDep, db: DbSession, org_id: ResolvedOrgDep
 ) -> AttendanceResponse:
     current.require_permission("attendance.write")
     record = await attendance_service.check_in(
-        db, _org_id(current), current.user.id, data
+        db, org_id, current.user.id, data
     )
     return AttendanceResponse(
         id=record.id,
@@ -99,9 +95,10 @@ async def check_out(
     data: AttendanceCheckOut,
     current: CurrentUserDep,
     db: DbSession,
+    org_id: ResolvedOrgDep,
 ) -> AttendanceResponse:
     current.require_permission("attendance.write")
-    record = await attendance_service.check_out(db, _org_id(current), record_id, data.notes)
+    record = await attendance_service.check_out(db, org_id, record_id, data.notes)
     return AttendanceResponse(
         id=record.id,
         organization_id=record.organization_id,

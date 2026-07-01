@@ -13,6 +13,7 @@ from app.models.ledger import LedgerAccount, LedgerEntry
 from app.models.organization import Center
 from app.schemas.ledger import (
     AccountBalance,
+    LedgerAccountCreate,
     LedgerEntryCreate,
     LedgerSummaryResponse,
 )
@@ -57,6 +58,22 @@ async def ensure_chart_of_accounts(db: AsyncSession, org_id: uuid.UUID) -> None:
             )
         )
     await db.flush()
+
+
+async def create_account(
+    db: AsyncSession, org_id: uuid.UUID, data: LedgerAccountCreate
+) -> LedgerAccount:
+    account = LedgerAccount(
+        organization_id=org_id,
+        code=data.code,
+        name=data.name,
+        account_type=data.account_type,
+        description=data.description,
+        is_system=False,
+    )
+    db.add(account)
+    await db.flush()
+    return account
 
 
 async def list_accounts(db: AsyncSession, org_id: uuid.UUID) -> list[LedgerAccount]:

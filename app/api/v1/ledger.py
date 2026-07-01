@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.core.deps import CurrentUserDep, DbSession
 from app.schemas.ledger import (
+    LedgerAccountCreate,
     LedgerAccountResponse,
     LedgerEntryCreate,
     LedgerEntryListResponse,
@@ -32,6 +33,15 @@ async def list_accounts(current: CurrentUserDep, db: DbSession) -> list[LedgerAc
     await ledger_service.ensure_chart_of_accounts(db, _org(current))
     accounts = await ledger_service.list_accounts(db, _org(current))
     return [LedgerAccountResponse.model_validate(a) for a in accounts]
+
+
+@router.post("/accounts", response_model=LedgerAccountResponse, status_code=201)
+async def create_account(
+    data: LedgerAccountCreate, current: CurrentUserDep, db: DbSession
+) -> LedgerAccountResponse:
+    current.require_permission("ledger.write")
+    account = await ledger_service.create_account(db, _org(current), data)
+    return LedgerAccountResponse.model_validate(account)
 
 
 @router.get("/accounts/{account_id}", response_model=LedgerAccountResponse)

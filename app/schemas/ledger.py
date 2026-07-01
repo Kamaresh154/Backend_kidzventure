@@ -9,6 +9,13 @@ from app.schemas.common import ORMModel
 
 # ── Accounts ────────────────────────────────────────────────────────────────
 
+class LedgerAccountCreate(BaseModel):
+    code: str = Field(..., min_length=1, max_length=10)
+    name: str = Field(..., min_length=1, max_length=255)
+    account_type: str = Field(..., pattern="^(asset|liability|equity|revenue|expense)$")
+    description: str | None = None
+
+
 class LedgerAccountResponse(ORMModel):
     id: UUID
     organization_id: UUID

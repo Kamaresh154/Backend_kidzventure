@@ -36,7 +36,6 @@ class LeaveRequestResponse(ORMModel):
     reviewed_by: str | None
     reviewed_on: date | None
     review_note: str | None
-    applied_on: object
     created_at: object
     updated_at: object
 

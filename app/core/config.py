@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
 
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,https://frontendbb.onrender.com"
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,https://frontendbb.onrender.com,capacitor://localhost,http://localhost"
 
     exotel_account_sid: str = ""
     exotel_api_key: str = ""

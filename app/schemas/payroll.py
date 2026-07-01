@@ -15,6 +15,8 @@ class StaffProfileCreate(BaseModel):
     department: str | None = None
     employee_code: str | None = None
     date_of_joining: date | None = None
+    phone: str | None = None
+    email: str | None = None
     basic_salary: Decimal = Field(default=Decimal("0"), ge=0)
     bank_account: dict = Field(default_factory=dict)
     status: str = "active"
@@ -25,6 +27,8 @@ class StaffProfileUpdate(BaseModel):
     center_id: UUID | None = None
     designation: str | None = None
     department: str | None = None
+    employee_code: str | None = None
+    date_of_joining: date | None = None
     basic_salary: Decimal | None = None
     bank_account: dict | None = None
     status: str | None = None

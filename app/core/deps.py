@@ -97,4 +97,22 @@ async def get_current_user(
     )
 
 
+async def resolve_org_id(current: CurrentUser, db: AsyncSession) -> UUID:
+    if current.org_id is not None:
+        return current.org_id
+    if "super_admin" in current.roles:
+        from app.models.organization import Organization
+        result = await db.execute(
+            select(Organization)
+            .where(Organization.deleted_at.is_(None))
+            .order_by(Organization.created_at)
+            .limit(1)
+        )
+        org = result.scalar_one_or_none()
+        if org is None:
+            raise HTTPException(status_code=404, detail="No organization found")
+        return org.id
+    raise HTTPException(status_code=400, detail="No organization context")
+
+
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]

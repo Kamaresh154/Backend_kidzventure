@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -46,14 +48,31 @@ app.add_middleware(
 )
 
 
+# ── Serve frontend static files ─────────────────────────────────────────
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+if STATIC_DIR.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(STATIC_DIR / "assets")), name="assets")
+
+    @app.get("/")
+    async def serve_frontend() -> HTMLResponse:
+        html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+        return HTMLResponse(html)
+
+    @app.exception_handler(404)
+    async def spa_fallback(request: Request, exc: Exception) -> HTMLResponse:
+        if request.url.path.startswith("/api/") or request.url.path.startswith("/assets/") or request.url.path == "/health":
+            return JSONResponse(status_code=404, content={"detail": "Not found"})
+        html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+        return HTMLResponse(html)
+else:
+    @app.get("/")
+    async def root() -> dict[str, str]:
+        return {"message": "Kidzventure ERP API", "docs": "/docs"}
+
+
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "service": "kidzventure-api", "version": "0.4.0"}
-
-
-@app.get("/")
-async def root() -> dict[str, str]:
-    return {"message": "Kidzventure ERP API", "docs": "/docs"}
 
 
 app.include_router(api_router, prefix="/api/v1")

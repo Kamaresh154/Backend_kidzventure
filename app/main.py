@@ -19,10 +19,16 @@ limiter = Limiter(key_func=get_remote_address)
 async def lifespan(_app: FastAPI):
     # Validate secrets on startup — raises if JWT_SECRET is missing
     settings.validate_production_secrets()
-    if settings.use_sqlite:
-        from app.db.bootstrap import bootstrap_sqlite
+    from app.core.database import AsyncSessionLocal
+    from app.db.bootstrap import init_sqlite_schema, seed_rbac, ensure_employee_permissions, seed_demo_org
 
-        await bootstrap_sqlite()
+    await init_sqlite_schema()
+    async with AsyncSessionLocal() as db:
+        await seed_rbac(db)
+        await db.flush()
+        await ensure_employee_permissions(db)
+        await seed_demo_org(db)
+        await db.commit()
     yield
 
 

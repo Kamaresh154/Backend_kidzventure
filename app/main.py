@@ -1,3 +1,5 @@
+VERSION = "0.4.1"
+
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -79,7 +81,7 @@ else:
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "service": "kidzventure-api", "version": "0.4.0"}
+    return {"status": "ok", "service": "kidzventure-api", "version": VERSION}
 
 
 app.include_router(api_router, prefix="/api/v1")
